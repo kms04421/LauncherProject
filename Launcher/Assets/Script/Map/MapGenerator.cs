@@ -5,11 +5,10 @@ public class MapGenerator : MonoBehaviour
 {
     [Header("base 오브젝트")]
     [SerializeField] private GameObject baseObj; // 기본 오브젝트 프리팹
-    [SerializeField] private GameObject basePos; // 프리팹 위치
 
     [Header("맵 정보")]
-    public float waveAmplitude = 0; // 파장
-    public float maxHeight = 0; // 파장 최대높이
+    public float waveAmplitude = 20; // 파장
+    public float maxHeight = 10; // 파장 최대높이
     private const int scale_X = 100;// X사이즈
     private const int scale_Z = 100;// Y사이즈
 
@@ -27,7 +26,7 @@ public class MapGenerator : MonoBehaviour
             for (int z = 0; z < scale_Z; z++)
             {
                 GameObject baseObjInstance = Instantiate(baseObj, new Vector3(x, 0, z), Quaternion.identity);
-                baseObjInstance.transform.SetParent(basePos.transform);
+                baseObjInstance.transform.SetParent(transform);
                 baseObjList.Add(baseObjInstance);
 
             }
@@ -46,14 +45,13 @@ public class MapGenerator : MonoBehaviour
 
         for (int i = 0; i < baseObjList.Count; i++) // 생성한 오브젝트 하단 채우기
         {
-            baseObjHeight = (int)baseObjList[i].transform.position.y;
-            Debug.Log(baseObjHeight);
+            baseObjHeight = (int)baseObjList[i].transform.position.y;         
             if (0 < baseObjHeight)
             {
                 for (int y = 0; y < baseObjHeight; y++)
                 {
                     GameObject baseObjInstance = Instantiate(baseObj, new Vector3(baseObjList[i].transform.position.x, y, baseObjList[i].transform.position.z), Quaternion.identity);
-                    baseObjInstance.transform.SetParent(basePos.transform);
+                    baseObjInstance.transform.SetParent(transform);
 
                     if(y+2 < baseObjHeight) // 지하의 안보이는 오브젝트 비활성화
                     {
