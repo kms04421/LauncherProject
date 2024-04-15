@@ -1,12 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Threading.Tasks;
 
 
 
 public class World : MonoBehaviour
 {
+
+
     public int seed; // 월드 시드 
     public BiomeAttributes biome; // 바이옴 속성 
 
@@ -24,19 +25,32 @@ public class World : MonoBehaviour
     ChunkCoord playerLastChunkCoord; // 마지막 플레이어 청크 좌표 
 
     List<ChunkCoord> chunksToCreate = new List<ChunkCoord>(); // 생성할 청크 목록 
+    List<Chunk> chunksToUpdate = new List<Chunk>();
 
-    private bool isCreatingChunk; //청크 생성 여부 
+    bool applyingModifications = false;
 
+    /*     private static World instance;
+     * public static World Instance()
+        {
+            // 인스턴스가 아직 생성되지 않았다면 생성
+            {
+                instance = new World();
+            }
+            return instance;
+        }
+    */
+
+    Queue<VoxelMod> modifications = new Queue<VoxelMod>();
 
     private void Start()
     {
         Random.InitState(seed); // 시드 초기화 
-
+        playerLastChunkCoord = GetChunkCorrdFromVector3(player.position); // 마지막 플레이어 청크 위치
         spawnPosition = new Vector3((VoxelData.WorldSizeInChunks * VoxelData.ChunkWidth) / 2f, VoxelData.ChunkHeight + 2f, VoxelData.WorldSizeInChunks); //스폰 위치 설정 
         GenerateWorld();//월드 생성
-        playerLastChunkCoord = GetChunkCorrdFromVector3(player.position); // 마지막 플레이어 청크 위치
-
         
+
+        Invoke("playerAct", 2);
     }
 
     private void Update()
@@ -44,8 +58,11 @@ public class World : MonoBehaviour
         WorldUpdate();
 
     }
-    
-    void WorldUpdate() 
+    void playerAct()
+    {
+        player.GetComponent<PlayerController>().enabled = true;
+    }
+    void WorldUpdate()
     {
         PlayerChunkCoord = GetChunkCorrdFromVector3(player.position); // 현제 플레이어 청크 좌표 업데이트 
         if (!PlayerChunkCoord.Equals(playerLastChunkCoord)) // 플레이어 좌표 변경시 청크 좌표 변경 
@@ -53,10 +70,17 @@ public class World : MonoBehaviour
             CheckViewDistance();
         }
 
-        if (chunksToCreate.Count > 0 && !isCreatingChunk) // 생성할 청크 존재 시 생성 
+        if (modifications.Count > 0 && !applyingModifications)
         {
-            StartCoroutine("CreateChunks"); // 동시 실행 안하니까 문제 x
-
+            StartCoroutine(ApplyModifications());
+        }
+        if (chunksToCreate.Count > 0)
+        {
+            CreateChunk();
+        }
+        if (chunksToUpdate.Count > 0)
+        {
+            UpdateChunks();
         }
 
     }
@@ -73,25 +97,52 @@ public class World : MonoBehaviour
             }
         }
 
-        player.position = spawnPosition; // 플레이어 위치 설정 
-        CheckViewDistance();
-    }
-
-    IEnumerator CreateChunks() // 청크 생성 코루틴 
-    {
-        isCreatingChunk = true;
-
-        while (chunksToCreate.Count > 0)
+        while (modifications.Count > 0)
         {
-            chunks[chunksToCreate[0].x, chunksToCreate[0].z].Init(); // 청크 초기화 및 생성 
+            VoxelMod v = modifications.Dequeue();
 
-            chunksToCreate.RemoveAt(0);
+            ChunkCoord c = GetChunkCorrdFromVector3(v.position);
 
-            yield return null;
+            if (chunks[c.x, c.z] == null)
+            {
+                chunks[c.x, c.z] = new Chunk(c, this, true);
+                activeCunks.Add(c);
+            }
+
+            chunks[c.x, c.z].modifgications.Enqueue(v);
+            if (!chunksToUpdate.Contains(chunks[c.x, c.z]))
+            {
+                chunksToUpdate.Add(chunks[c.x, c.z]);
+            }
+
+        }
+        for (int i = 0; i < chunksToUpdate.Count; i++)
+        {
+            chunksToUpdate[0].UpdateChunk();
+            chunksToUpdate.RemoveAt(0);
         }
 
-        isCreatingChunk = false;
+        player.position = spawnPosition; // 플레이어 위치 설정 
+   
     }
+
+
+
+    /*   IEnumerator CreateChunks() // 청크 생성 코루틴 
+       {
+           isCreatingChunk = true;
+
+           while (chunksToCreate.Count > 0)
+           {
+               chunks[chunksToCreate[0].x, chunksToCreate[0].z].Init(); // 청크 초기화 및 생성 
+
+               chunksToCreate.RemoveAt(0);
+
+               yield return null;
+           }
+
+           isCreatingChunk = false;
+       }*/
     ChunkCoord GetChunkCorrdFromVector3(Vector3 pos) // 청크 위치 반환 
     {
         int x = Mathf.FloorToInt(pos.x / VoxelData.ChunkWidth);
@@ -99,7 +150,7 @@ public class World : MonoBehaviour
         return new ChunkCoord(x, z);
     }
 
-    public Chunk GetChunkFromVector3(Vector3 pos)
+    public Chunk GetChunkFromVector3(Vector3 pos) // 청크 배열 정보 반환 
     {
         int x = Mathf.FloorToInt(pos.x / VoxelData.ChunkWidth);
         int z = Mathf.FloorToInt(pos.z / VoxelData.ChunkWidth);
@@ -125,7 +176,7 @@ public class World : MonoBehaviour
                     {
                         chunks[x, z] = new Chunk(new ChunkCoord(x, z), this, false); // 청크 생성 
 
-                       
+
 
                         chunksToCreate.Add(new ChunkCoord(x, z)); // 생성할 청크 목록에 추가 
                     }
@@ -156,11 +207,11 @@ public class World : MonoBehaviour
 
     public bool CheckForVoxel(Vector3 pos)
     {
-    
+
         ChunkCoord thisChunk = new ChunkCoord(pos);
-      
+
         if (!IsChunkWorld(thisChunk) || pos.y < 0 || pos.y > VoxelData.ChunkHeight)
-        {         
+        {
             return false;
 
         }
@@ -224,14 +275,92 @@ public class World : MonoBehaviour
 
         }
 
+        if (yPos == terrainHeight)
+        {
+            if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biome.treeZoneScale) > biome.treeZoneThreshold)
+            {
+                if (Noise.Get2DPerlin(new Vector2(pos.x, pos.z), 0, biome.treePlacementScale) > biome.treePlacementThreshold)
+                {
+                    Structure.MakeTree(pos, modifications, biome.minTreeHeight, biome.maxTreeHeight);
+                }
+
+            }
+
+        }
+
         return voxelValue;
 
 
     }
 
+    void CreateChunk()
+    {
+
+        ChunkCoord c = chunksToCreate[0];
+        chunksToCreate.RemoveAt(0);
+        activeCunks.Add(c);
+        chunks[c.x, c.z].Init();
+
+    }
+
+    void UpdateChunks()
+    {
+
+        bool updated = false;
+        int index = 0;
+
+        while (!updated && index < chunksToUpdate.Count - 1)
+        {
+
+            if (chunksToUpdate[index].isVoxelMapPopulated)
+            {
+                chunksToUpdate[index].UpdateChunk();
+                chunksToUpdate.RemoveAt(index);
+                updated = true;
+            }
+            else
+            {
+                index++;
+
+            }
+
+        }
+
+    }
+
+    IEnumerator ApplyModifications()
+    {
+        applyingModifications = true;
+        int count = 0;
+        while (modifications.Count > 0)
+        {
+            VoxelMod v = modifications.Dequeue();
+
+            ChunkCoord c = GetChunkCorrdFromVector3(v.position);
+
+            if (chunks[c.x, c.z] == null)
+            {
+                chunks[c.x, c.z] = new Chunk(c, this, true);
+                activeCunks.Add(c);
+            }
+
+            chunks[c.x, c.z].modifgications.Enqueue(v);
+            if (!chunksToUpdate.Contains(chunks[c.x, c.z]))
+            {
+                chunksToUpdate.Add(chunks[c.x, c.z]);
+            }
+            count++;
+            if (count > 200)
+            {
+                count = 0;
+                yield return null;
+            }
+        }
+        applyingModifications = false;
+    }
     bool IsChunkWorld(ChunkCoord coord)
     {
-        
+
         if (coord.x > 0 && coord.x < VoxelData.WorldSizeInChunks - 1 && coord.z > 0 &&
             coord.z < VoxelData.WorldSizeInChunks - 1)
         {
@@ -254,6 +383,7 @@ public class World : MonoBehaviour
             return false;
         }
     }
+
 }
 
 
@@ -297,4 +427,23 @@ public class BlockType
 
 
     }
+}
+
+public class VoxelMod
+{
+    public Vector3 position;
+    public byte id;
+
+    public VoxelMod()
+    {
+        position = new Vector3();
+        id = 0;
+    }
+    public VoxelMod(Vector3 _position, byte _id)
+    {
+        position = _position;
+        id = _id;
+
+    }
+
 }

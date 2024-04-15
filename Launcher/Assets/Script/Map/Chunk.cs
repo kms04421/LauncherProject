@@ -16,6 +16,8 @@ public class Chunk
     List<Vector2> uvs = new List<Vector2>();
     public byte[,,] voxelMap = new byte[VoxelData.ChunkWidth, VoxelData.ChunkHeight, VoxelData.ChunkWidth];
 
+    public Queue<VoxelMod> modifgications =new Queue<VoxelMod>();
+
     World world; // 맵 블럭정보
 
     private bool _isActive;
@@ -41,7 +43,6 @@ public class Chunk
         chunkObject = new GameObject();
         meshFilter = chunkObject.AddComponent<MeshFilter>();
         meshRenderer = chunkObject.AddComponent<MeshRenderer>();
-
         meshCollider = chunkObject.AddComponent<MeshCollider>();
 
         meshRenderer.material = world.material;
@@ -66,15 +67,22 @@ public class Chunk
                 for (int z = 0; z < VoxelData.ChunkWidth; z++)
                 {
                     voxelMap[x, y, z] = world.GetVoxel(new Vector3(x, y, z) + position);
-                
+
                 }
             }
         }
         isVoxelMapPopulated = true;
     }
 
-    void UpdateChunk() // 메쉬 생성 
+    public void UpdateChunk() // 메쉬 생성 
     {
+        while (modifgications.Count  > 0)
+        {
+            VoxelMod v = modifgications.Dequeue();
+            Vector3 pos = v.position -= position;
+            voxelMap[(int)pos.x, (int)pos.y, (int)pos.z] = v.id;
+        }
+
         ClearMeshData();
         for (int y = 0; y < VoxelData.ChunkHeight; y++)
         {
@@ -179,7 +187,19 @@ public class Chunk
         UpdateChunk();
 
     }
+    public byte GetTOVoxel(Vector3 pos) // 블럭 정보받기
+    {
 
+        int xCheck = Mathf.FloorToInt(pos.x);
+        int yCheck = Mathf.FloorToInt(pos.y);
+        int zCheck = Mathf.FloorToInt(pos.z);
+
+        xCheck -= Mathf.FloorToInt(chunkObject.transform.position.x);
+        zCheck -= Mathf.FloorToInt(chunkObject.transform.position.z);
+        
+        return voxelMap[xCheck, yCheck, zCheck];
+
+    }
     void UpdateSurroundingVoxels(int x, int y, int z)
     {
 

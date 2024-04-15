@@ -14,7 +14,7 @@ public static class VoxelData
 
     public static readonly int ViewDistanceInChunks = 5; // 시야 거리 
 
-    public static readonly int TextureAtlasSizeInBlocks = 4; // 텍스처 아트라스 크기 
+    public static readonly int TextureAtlasSizeInBlocks = 16; // 텍스처 아트라스 크기 
     
     //아틀라스 값 정규화
     public static float NormalizeBlockTextureSize 

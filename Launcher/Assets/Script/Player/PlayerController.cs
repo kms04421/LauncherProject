@@ -1,8 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 enum CharacterState
 {
     DefaultState,
@@ -16,7 +13,7 @@ public class PlayerController : MonoBehaviour
 
     private CharacterController characterController;
 
-    [SerializeField]private float moveSpeed = 4f;
+    [SerializeField] private float moveSpeed = 4f;
 
     private float gravity = -9.81f;
 
@@ -45,10 +42,14 @@ public class PlayerController : MonoBehaviour
     public float checkIncrement = 10f;
     public float reach = 8f;
     World world;
+    PlayerUI playerUI;
+    Item item;
+    private byte selectNumber = 0;
 
-    
     void Start()
     {
+        item = new Item();
+        playerUI = GetComponent<PlayerUI>();
         world = GameObject.Find("World").GetComponent<World>();
         animator = GetComponent<Animator>();
         characterController = GetComponent<CharacterController>();
@@ -94,10 +95,10 @@ public class PlayerController : MonoBehaviour
         switch (newState)
         {
             case CharacterState.DefaultState:
-            
+
                 break;
             case CharacterState.OperationState:
-               
+
                 break;
         }
 
@@ -110,7 +111,7 @@ public class PlayerController : MonoBehaviour
     {
         ApplayRotation();
         ApplyGravity();
-        ApplyMovement();      
+        ApplyMovement();
 
 
     }
@@ -124,14 +125,13 @@ public class PlayerController : MonoBehaviour
     {
         float step = checkIncrement;
         Vector3 lastPos = new Vector3();
-        
-        while(step < reach)
+
+        while (step < reach)
         {
             Vector3 pos = _mainCamera.transform.position + (_mainCamera.transform.forward * step);
-          
+
             if (world.CheckForVoxel(pos))
             {
-                
                 highlightBlock.position = new Vector3(Mathf.FloorToInt(pos.x), Mathf.FloorToInt(pos.y), Mathf.FloorToInt(pos.z));
                 placeBlock.position = lastPos;
 
@@ -153,16 +153,16 @@ public class PlayerController : MonoBehaviour
 
     public void ApplayRotation()
     {
-  
+
         _direction = Quaternion.Euler(0.0f, _mainCamera.transform.eulerAngles.y, 0.0f) * new Vector3(_input.x, 0.0f, _input.y);
         playerQuaternion = Quaternion.Euler(0.0f, _mainCamera.transform.eulerAngles.y, 0.0f);
-        
+
         transform.rotation = Quaternion.RotateTowards(transform.rotation, playerQuaternion, rotationSpeed * Time.deltaTime);
     }
 
     public void ApplyGravity()
     {
-        if(IsGrounded() && _isjump == false)
+        if (IsGrounded() && _isjump == false)
         {
             _velocity = -1.0f;
         }
@@ -171,16 +171,16 @@ public class PlayerController : MonoBehaviour
             if (_isjump)
             {
                 IsJump();
-            }          
+            }
             _velocity += gravity * gravityMultiplier * Time.deltaTime;
         }
-    
+
         _direction.y = _velocity;
     }
 
     public void ApplyMovement()
     {
-        if(_input.sqrMagnitude != 0)
+        if (_input.sqrMagnitude != 0)
         {
             animator.SetInteger("AnimationPar", 1);
         }
@@ -190,7 +190,7 @@ public class PlayerController : MonoBehaviour
         }
         characterController.Move(_direction * moveSpeed * Time.deltaTime);
     }
-   
+
     public void Move(InputAction.CallbackContext context)
     {
         _input = context.ReadValue<Vector2>();
@@ -199,24 +199,25 @@ public class PlayerController : MonoBehaviour
 
     public void Jump(InputAction.CallbackContext context)
     {
-        
+
         if (!context.started) return;
         if (!IsGrounded()) return;
-      
+
         _velocity += jumpPower;
         IsJump();
-       
+
 
     }
-    
+
     public void LClick(InputAction.CallbackContext context)
     {
         placeCurosrBlocks();
         if (!context.started) return;
         if (!highlightBlock.gameObject.activeSelf) return;
-           
-           world.GetChunkFromVector3(highlightBlock.position).EditVoxel(highlightBlock.position, 0);
-     
+        item.ItemByteconversion(world.GetChunkFromVector3(highlightBlock.position).GetTOVoxel(highlightBlock.position));
+        playerUI.inventory.AddItem(item);
+      
+        world.GetChunkFromVector3(highlightBlock.position).EditVoxel(highlightBlock.position, 0);
 
 
     }
@@ -225,13 +226,19 @@ public class PlayerController : MonoBehaviour
         placeCurosrBlocks();
         if (!context.started) return;
         if (!placeBlock.gameObject.activeSelf) return;
-
-          world.GetChunkFromVector3(placeBlock.position).EditVoxel(placeBlock.position, 2);
+       
+        
+        world.GetChunkFromVector3(placeBlock.position).EditVoxel(placeBlock.position, playerUI.itemSlot[selectNumber].itemCode);
 
     }
+
+    public void NumberInput(InputAction.CallbackContext context)
+    {
+        playerUI.NumberInput((int.Parse(context.control.name) - 1));
+        selectNumber = (byte)(int.Parse(context.control.name)-1);
+
+    }
+
     private bool IsJump() => _isjump = !_isjump;
-   
-
-
     private bool IsGrounded() => characterController.isGrounded;
 }
