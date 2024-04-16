@@ -1,2 +1,2 @@
-# LauncherProject
-필드에서 유저들이 싸우는 멀티 프로젝트
+# MinecraftProject
+마인크래프트 모작 프로젝트
